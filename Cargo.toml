@@ -5,12 +5,20 @@ version = "0.0.1"
 authors = ["Sam Vevang <sam.vevang@gmail.com>"]
 
 [dependencies]
+
 postgres = "0.9"
 router = "*"
 time = "*"
 
 [dependencies.iron]
+
 version = "*"
 
 [dependencies.bodyparser]
+
 git = "https://github.com/iron/body-parser.git"
+
+[dependencies.r2d2_postgres]
+
+git = "https://github.com/sfackler/r2d2-postgres.git"
+
