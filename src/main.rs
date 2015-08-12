@@ -1,6 +1,32 @@
 extern crate postgres;
+extern crate iron;
+extern crate router;
+extern crate time;
 
+use iron::prelude::*;
+use iron::{BeforeMiddleware, AfterMiddleware, typemap};
+use time::precise_time_ns;
+use router::{Router};
 use postgres::{Connection, SslMode};
+
+struct ResponseTime;
+
+impl typemap::Key for ResponseTime { type Value = u64; }
+
+impl BeforeMiddleware for ResponseTime {
+    fn before(&self, req: &mut Request) -> IronResult<()> {
+        req.extensions.insert::<ResponseTime>(precise_time_ns());
+        Ok(())
+    }
+}
+
+impl AfterMiddleware for ResponseTime {
+    fn after(&self, req: &mut Request, res: Response) -> IronResult<Response> {
+        let delta = precise_time_ns() - *req.extensions.get::<ResponseTime>().unwrap();
+        println!("Request took: {} ms", (delta as f64) / 1000000.0);
+        Ok(res)
+    }
+}
 
 struct Event {
     id: i32,
@@ -21,35 +47,6 @@ fn setup_database(conn:&Connection){
         println!("Found event {}", event.name);
     }
 
-}
-
-
-extern crate iron;
-extern crate router;
-extern crate time;
-
-use iron::prelude::*;
-use iron::{BeforeMiddleware, AfterMiddleware, typemap};
-use time::precise_time_ns;
-use router::{Router};
-
-struct ResponseTime;
-
-impl typemap::Key for ResponseTime { type Value = u64; }
-
-impl BeforeMiddleware for ResponseTime {
-    fn before(&self, req: &mut Request) -> IronResult<()> {
-        req.extensions.insert::<ResponseTime>(precise_time_ns());
-        Ok(())
-    }
-}
-
-impl AfterMiddleware for ResponseTime {
-    fn after(&self, req: &mut Request, res: Response) -> IronResult<Response> {
-        let delta = precise_time_ns() - *req.extensions.get::<ResponseTime>().unwrap();
-        println!("Request took: {} ms", (delta as f64) / 1000000.0);
-        Ok(res)
-    }
 }
 
 /*fn event_read(_: &mut Request) -> IronResult<Response> {
