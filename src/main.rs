@@ -2,6 +2,9 @@ extern crate postgres;
 extern crate iron;
 extern crate router;
 extern crate time;
+extern crate r2d2;
+extern crate r2d2_postgres;
+
 
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};

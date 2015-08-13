@@ -9,6 +9,7 @@ authors = ["Sam Vevang <sam.vevang@gmail.com>"]
 postgres = "0.9"
 router = "*"
 time = "*"
+r2d2 = "*"
 
 [dependencies.iron]
 
