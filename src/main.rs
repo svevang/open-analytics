@@ -11,7 +11,9 @@ use iron::{BeforeMiddleware, AfterMiddleware, typemap};
 use time::precise_time_ns;
 use router::{Router};
 use postgres::{Connection, SslMode};
+use r2d2_postgres::PostgresConnectionManager;
 
+use std::sync::Arc;
 struct ResponseTime;
 
 impl typemap::Key for ResponseTime { type Value = u64; }
@@ -61,8 +63,12 @@ fn event_read(req: &mut Request) -> IronResult<Response> {
 
 fn main() {
 
-    let conn = Connection::connect("postgres://sam@localhost/open_analytics_development", &SslMode::None)
+
+    let config = r2d2::Config::default();
+    let manager = PostgresConnectionManager::new("postgres://sam@localhost/open_analytics_development", SslMode::None)
             .unwrap();
+    let pool = Arc::new(r2d2::Pool::new(config, manager).unwrap());
+
 
     let mut router = Router::new();
 
