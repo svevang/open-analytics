@@ -12,6 +12,7 @@ use time::precise_time_ns;
 use router::{Router};
 use postgres::{Connection, SslMode};
 use r2d2_postgres::PostgresConnectionManager;
+use r2d2::Pool;
 
 use std::sync::Arc;
 struct ResponseTime;
@@ -39,6 +40,46 @@ struct Event {
     json: String
 }
 
+struct ConnectionPool;// {
+   // pool: Arc
+//}
+
+impl ConnectionPool {
+    fn new() -> ConnectionPool {
+        //let config = r2d2::Config::default();
+        //let config:r2d2::Config<_>  = r2d2::Config::builder()
+                //.error_handler(Box::new(r2d2::LoggingErrorHandler))
+                        //.build();
+        //let manager = PostgresConnectionManager::new("postgres://sam@localhost/open_analytics_development", SslMode::None)
+         //.unwrap();
+        //let pool = Arc::new(r2d2::Pool::new(config, manager).unwrap());
+       // let mut pool: () = Arc::new(r2d2::Pool::new(config, manager).unwrap());
+
+        ConnectionPool // {
+  //          pool: pool,
+       // }
+    }
+}
+
+impl BeforeMiddleware for ConnectionPool {
+    fn before(&self, req: &mut Request) -> IronResult<()> {
+       // req.extensions.insert::<String>("asdfasdf");
+        //req.extensions.insert::<ConnectionPool>()
+        println!("in before middleware");
+        Ok(())
+    }
+}
+
+    /*fn invoke(&self, req: &mut Request, _res: &mut Response) -> MiddlewareResult {
+        println!("Connection pool middleware called");
+        let conn = self.pool.connect().ok().expect("could not grab a connection");
+
+        req.map.insert(conn);
+
+        Ok(Continue)
+    }*/
+
+
 fn setup_database(conn:&Connection){
 
     println!("hi there!");
@@ -63,11 +104,6 @@ fn event_read(req: &mut Request) -> IronResult<Response> {
 
 fn main() {
 
-
-    let config = r2d2::Config::default();
-    let manager = PostgresConnectionManager::new("postgres://sam@localhost/open_analytics_development", SslMode::None)
-            .unwrap();
-    let pool = Arc::new(r2d2::Pool::new(config, manager).unwrap());
 
 
     let mut router = Router::new();
