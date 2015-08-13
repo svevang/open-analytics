@@ -5,6 +5,8 @@ extern crate time;
 extern crate r2d2;
 extern crate r2d2_postgres;
 
+mod db;
+mod app;
 
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
