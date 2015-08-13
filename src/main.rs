@@ -108,9 +108,12 @@ fn main() {
 
 
 
+    //let app = app::App.new();
+
     let mut router = Router::new();
 
     let mut chain = Chain::new(event_read);
+    //chain.link_before(app::App.new());
     chain.link_before(ResponseTime);
     chain.link_after(ResponseTime);
 

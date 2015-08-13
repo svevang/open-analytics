@@ -24,19 +24,31 @@ impl App {
 }
 
 impl iron::typemap::Key for App {
-    type Value = App;
+    type Value = Arc<App>;
 }
 
 pub struct AppMiddleware {
         app: Arc<App>
 }
 
+impl AppMiddleware {
+    pub fn new(app: Arc<App>) -> AppMiddleware {
+        AppMiddleware { app: app }
+    }
+}
+
 impl BeforeMiddleware for AppMiddleware {
     fn before(&self, req: &mut Request) -> Result<(), iron::error::IronError> {
         if !req.extensions.contains::<App>() {
-            let app = req.extensions.get::<App>();
-            //req.extensions.insert::<db::DatabasePool>(db::DatabasePool::new(app));
+            req.extensions.insert::<App>(self.app.clone());
         }
         Ok(())
     }
+
+/*
+    fn before(&self, req: &mut Request) -> IronResult<()> {
+        req.extensions.insert::<ResponseTime>(precise_time_ns());
+        Ok(())
+    }
+    */
 }
