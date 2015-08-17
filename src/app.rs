@@ -10,7 +10,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(config: &db::Config) -> App {
+    pub fn new() -> App {
 
         let db_config = r2d2::Config::builder()
             .pool_size(2)

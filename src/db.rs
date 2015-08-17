@@ -48,7 +48,10 @@ impl BeforeMiddleware for DatabasePoolMiddleware {
     fn before(&self, req: &mut Request) -> Result<(), iron::error::IronError> {
         if !req.extensions.contains::<DatabasePool>() {
             let app = req.extensions.get::<App>();
-            //req.extensions.insert::<DatabasePool>(DatabasePool::new(*app.unwrap()));
+           // println!("Hello! from database middlware {}", app.database)
+           // req.extensions.insert::<App>(self.app.clone());
+           // let database_pool = DatabasePool::new(app.unwrap());
+           // req.extensions.insert::<DatabasePool>(database_pool);
         }
         Ok(())
     }

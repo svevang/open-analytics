@@ -1,3 +1,6 @@
+mod db;
+mod app;
+
 extern crate postgres;
 extern crate iron;
 extern crate router;
@@ -5,8 +8,6 @@ extern crate time;
 extern crate r2d2;
 extern crate r2d2_postgres;
 
-mod db;
-mod app;
 
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
@@ -82,7 +83,7 @@ impl BeforeMiddleware for ConnectionPool {
     }*/
 
 
-fn setup_database(conn:&Connection){
+fn print_database(conn:&Connection){
 
     println!("hi there!");
     let stmt = conn.prepare("SELECT * FROM analytics").unwrap();
@@ -98,6 +99,8 @@ fn setup_database(conn:&Connection){
 }
 
 fn event_read(req: &mut Request) -> IronResult<Response> {
+    let conn = req.extensions.get::<app::App>().unwrap().database.get();
+    print_database(&conn.unwrap());
     let ref query = req.extensions.get::<Router>()
         .unwrap().find("name").unwrap_or("missing name param");
     println!("{}",query);
@@ -106,14 +109,13 @@ fn event_read(req: &mut Request) -> IronResult<Response> {
 
 fn main() {
 
-
-
-    //let app = app::App.new();
+    let app = app::App::new();
 
     let mut router = Router::new();
 
     let mut chain = Chain::new(event_read);
-    //chain.link_before(app::App.new());
+    chain.link_before(app::AppMiddleware::new(Arc::new(app)));
+    chain.link_before(db::DatabasePoolMiddleware);
     chain.link_before(ResponseTime);
     chain.link_after(ResponseTime);
 
