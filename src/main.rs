@@ -12,10 +12,8 @@ extern crate r2d2_postgres;
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
 use time::precise_time_ns;
-use router::{Router};
-use postgres::{Connection, SslMode};
-use r2d2_postgres::PostgresConnectionManager;
-use r2d2::Pool;
+use router::Router;
+use postgres::Connection;
 
 use std::sync::Arc;
 struct ResponseTime;
@@ -42,45 +40,6 @@ struct Event {
     name: String,
     json: String
 }
-
-struct ConnectionPool;// {
-   // pool: Arc
-//}
-
-impl ConnectionPool {
-    fn new() -> ConnectionPool {
-        //let config = r2d2::Config::default();
-        //let config:r2d2::Config<_>  = r2d2::Config::builder()
-                //.error_handler(Box::new(r2d2::LoggingErrorHandler))
-                        //.build();
-        //let manager = PostgresConnectionManager::new("postgres://sam@localhost/open_analytics_development", SslMode::None)
-         //.unwrap();
-        //let pool = Arc::new(r2d2::Pool::new(config, manager).unwrap());
-       // let mut pool: () = Arc::new(r2d2::Pool::new(config, manager).unwrap());
-
-        ConnectionPool // {
-  //          pool: pool,
-       // }
-    }
-}
-
-impl BeforeMiddleware for ConnectionPool {
-    fn before(&self, req: &mut Request) -> IronResult<()> {
-       // req.extensions.insert::<String>("asdfasdf");
-        //req.extensions.insert::<ConnectionPool>()
-        println!("in before middleware");
-        Ok(())
-    }
-}
-
-    /*fn invoke(&self, req: &mut Request, _res: &mut Response) -> MiddlewareResult {
-        println!("Connection pool middleware called");
-        let conn = self.pool.connect().ok().expect("could not grab a connection");
-
-        req.map.insert(conn);
-
-        Ok(Continue)
-    }*/
 
 
 fn print_database(conn:&Connection){
@@ -115,7 +74,6 @@ fn main() {
 
     let mut chain = Chain::new(event_read);
     chain.link_before(app::AppMiddleware::new(Arc::new(app)));
-    chain.link_before(db::DatabasePoolMiddleware);
     chain.link_before(ResponseTime);
     chain.link_after(ResponseTime);
 
