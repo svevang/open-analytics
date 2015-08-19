@@ -10,11 +10,13 @@ extern crate r2d2_postgres;
 extern crate rustc_serialize;
 extern crate bodyparser;
 extern crate persistent;
+extern crate chrono;
 
 use persistent::Read;
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
 use time::precise_time_ns;
+use chrono::*;
 use router::Router;
 use postgres::Connection;
 use rustc_serialize::json;
@@ -55,7 +57,8 @@ fn print_database(conn:r2d2::PooledConnection<r2d2_postgres::PostgresConnectionM
         let id:i32 = row.get::<_, i32>(0);
         let name:String =  row.get::<_, String>(1);
         let json=  row.get::<_, rustc_serialize::json::Json>(2);
-        println!("Found event {}, {}, {:?}", id, name, json);
+        let date_created =  row.get::<_, NaiveDateTime>(3);
+        println!("Found event {}, {}, {:?} {}", id, name, json, date_created);
         let event = Event {
             id: id,
             name: name,
