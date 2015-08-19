@@ -8,8 +8,10 @@ extern crate time;
 extern crate r2d2;
 extern crate r2d2_postgres;
 extern crate rustc_serialize;
+extern crate bodyparser;
+extern crate persistent;
 
-
+use persistent::Read;
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
 use time::precise_time_ns;
@@ -66,21 +68,37 @@ fn print_database(conn:&Connection){
 fn event_read(req: &mut Request) -> IronResult<Response> {
     let conn = req.extensions.get::<app::App>().unwrap().database.get();
     print_database(&conn.unwrap());
-    let ref query = req.extensions.get::<Router>()
+    let ref namespace = req.extensions.get::<Router>()
         .unwrap().find("name").unwrap_or("missing name param");
-    println!("{}",query);
-    Ok(Response::with((iron::status::Ok, *query)))
+    Ok(Response::with((iron::status::Ok, *namespace)))
 }
 
 fn event_write(req: &mut Request) -> IronResult<Response> {
     let conn = req.extensions.get::<app::App>().unwrap().database.get();
-    print_database(&conn.unwrap());
-    let ref query = req.extensions.get::<Router>()
-        .unwrap().find("name").unwrap_or("missing name param");
-    println!("{}",query);
-    let resp = format!("Post: {}", *query);
-    Ok(Response::with((iron::status::Ok, resp)))
+
+    // https://github.com/iron/body-parser
+    let body = req.get::<bodyparser::Json>();
+    match body {
+        Ok(Some(body)) => {
+            let ref namespace = (req.extensions.get::<Router>()
+                                 .unwrap().find("name").unwrap_or("missing name param"));
+
+            let resp = format!("Post: {}", *namespace);
+            println!("Read body:\n{}", body);
+            Ok(Response::with((iron::status::Ok, resp)))
+        },
+        Ok(None) => {
+            Ok(Response::with((iron::status::BadRequest, "empty-body")))
+        },
+        Err(err) => {
+            Ok(Response::with((iron::status::BadRequest, "no body")))
+        }
+    }
+
 }
+
+const MAX_BODY_LENGTH: usize = 1024 * 5;
+
 
 fn main() {
 
@@ -96,8 +114,9 @@ fn main() {
     router.get("api/v1/:name", chain);
 
     let mut chain = Chain::new(event_write);
-    chain.link_before(app::AppMiddleware::new(arc_app.clone()));
     chain.link_before(ResponseTime);
+    chain.link_before(app::AppMiddleware::new(arc_app.clone()));
+    chain.link_before(Read::<bodyparser::MaxBodyLength>::one(MAX_BODY_LENGTH));
     chain.link_after(ResponseTime);
     router.post("api/v1/:name", chain);
 
