@@ -8,4 +8,4 @@ fi
 
 eval `$THIS_DIR/_parse_db_params.rb $DATABASE_URL`
 
-psql $DATABASE_NAME < ${THIS_DIR}/../schema.sql
+psql $DB_NAME < ${THIS_DIR}/../schema.sql
