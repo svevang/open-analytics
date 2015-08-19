@@ -47,7 +47,7 @@ struct Event {
 }
 
 
-fn print_database(conn:&Connection){
+fn print_database(conn:r2d2::PooledConnection<r2d2_postgres::PostgresConnectionManager>){
 
     println!("hi there!");
     let stmt = conn.prepare("SELECT * FROM analytics").unwrap();
@@ -66,15 +66,15 @@ fn print_database(conn:&Connection){
 }
 
 fn event_read(req: &mut Request) -> IronResult<Response> {
-    let conn = req.extensions.get::<app::App>().unwrap().database.get();
-    print_database(&conn.unwrap());
+    let conn = req.extensions.get::<app::App>().unwrap().database.get().unwrap();
+    print_database(conn);
     let ref namespace = req.extensions.get::<Router>()
         .unwrap().find("name").unwrap_or("missing name param");
     Ok(Response::with((iron::status::Ok, *namespace)))
 }
 
 fn event_write(req: &mut Request) -> IronResult<Response> {
-    let conn = req.extensions.get::<app::App>().unwrap().database.get();
+    let conn = req.extensions.get::<app::App>().unwrap().database.get().unwrap();
 
     // https://github.com/iron/body-parser
     let body = req.get::<bodyparser::Json>();
@@ -85,6 +85,9 @@ fn event_write(req: &mut Request) -> IronResult<Response> {
 
             let resp = format!("Post: {}", *namespace);
             println!("Read body:\n{}", body);
+            conn.execute("INSERT INTO analytics (name, data) VALUES ($1, $2)",
+                             &[namespace, &body]).unwrap();
+            print_database(conn);
             Ok(Response::with((iron::status::Ok, resp)))
         },
         Ok(None) => {
@@ -98,7 +101,6 @@ fn event_write(req: &mut Request) -> IronResult<Response> {
 }
 
 const MAX_BODY_LENGTH: usize = 1024 * 5;
-
 
 fn main() {
 
