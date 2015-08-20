@@ -18,7 +18,6 @@ use iron::{BeforeMiddleware, AfterMiddleware, typemap};
 use time::precise_time_ns;
 use chrono::*;
 use router::Router;
-use postgres::Connection;
 use rustc_serialize::json;
 
 use std::sync::Arc;
@@ -44,8 +43,8 @@ impl AfterMiddleware for ResponseTime {
 struct Event {
     id: i32,
     name: String,
-    json: json::Json
-
+    json: json::Json,
+    date_created: NaiveDateTime
 }
 
 
@@ -58,12 +57,13 @@ fn print_database(conn:r2d2::PooledConnection<r2d2_postgres::PostgresConnectionM
         let name:String =  row.get::<_, String>(1);
         let json=  row.get::<_, rustc_serialize::json::Json>(2);
         let date_created =  row.get::<_, NaiveDateTime>(3);
-        println!("Found event {}, {}, {:?} {}", id, name, json, date_created);
         let event = Event {
             id: id,
             name: name,
-            json: json
+            json: json,
+            date_created: date_created
         };
+        println!("Found event {}, {}, {:?} {}", event.id, event.name, event.json, event.date_created);
     }
 
 }
