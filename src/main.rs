@@ -83,15 +83,14 @@ fn event_write(req: &mut Request) -> IronResult<Response> {
     let body = req.get::<bodyparser::Json>();
     match body {
         Ok(Some(body)) => {
-            let ref namespace = (req.extensions.get::<Router>()
-                                 .unwrap().find("name").unwrap_or("missing name param"));
+            let ref namespace = req.extensions.get::<Router>()
+                                 .unwrap().find("name").unwrap_or("missing name param");
 
-            let resp = format!("Post: {}", *namespace);
-            println!("Read body:\n{}", body);
-            conn.execute("INSERT INTO analytics (name, data) VALUES ($1, $2)",
-                             &[namespace, &body]).unwrap();
-            print_database(conn);
-            Ok(Response::with((iron::status::Ok, resp)))
+            let stmt = conn.prepare("INSERT INTO analytics (name, data) VALUES ($1, $2) RETURNING id").unwrap();
+            let result = stmt.query(&[namespace, &body]).unwrap();
+            let row_id:i32 = result.get(0).get::<_, i32>(0);
+            print_database(req.extensions.get::<app::App>().unwrap().database.get().unwrap());
+            Ok(Response::with((iron::status::Ok, format!("{{\"id\": \"{}\"}}", row_id))))
         },
         Ok(None) => {
             Ok(Response::with((iron::status::BadRequest, "empty-body")))
