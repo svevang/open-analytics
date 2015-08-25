@@ -39,7 +39,7 @@ impl AfterMiddleware for ResponseTime {
         Ok(res)
     }
 }
-
+#[derive(RustcEncodable)]
 struct Event {
     id: i32,
     name: String,
@@ -70,10 +70,26 @@ fn print_database(conn:r2d2::PooledConnection<r2d2_postgres::PostgresConnectionM
 
 fn event_read(req: &mut Request) -> IronResult<Response> {
     let conn = req.extensions.get::<app::App>().unwrap().database.get().unwrap();
-    print_database(conn);
+    let stmt = conn.prepare("SELECT id, data, date_created FROM analytics where name=$1").unwrap();
     let ref namespace = req.extensions.get::<Router>()
         .unwrap().find("name").unwrap_or("missing name param");
-    Ok(Response::with((iron::status::Ok, *namespace)))
+    let result = stmt.query(&[namespace]).unwrap();
+    let mut events = Vec::new();
+    for row in result {
+        let id:i32 = row.get::<_, i32>(0);
+        let name:String =  row.get::<_, String>(1);
+        let json=  row.get::<_, rustc_serialize::json::Json>(2);
+        let date_created =  row.get::<_, NaiveDateTime>(3);
+        let event = Event {
+            id: id,
+            name: name,
+            json: json,
+            date_created: date_created
+        };
+        events.push(event);
+       // println!("Found event {}, {}, {:?} {}", event.id, event.name, event.json, event.date_created);
+    }
+    Ok(Response::with((iron::status::Ok, "OK")))
 }
 
 fn event_write(req: &mut Request) -> IronResult<Response> {

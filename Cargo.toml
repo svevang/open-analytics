@@ -9,10 +9,13 @@ authors = ["Sam Vevang <sam.vevang@gmail.com>"]
 postgres = { version = "0.9", features = ["rustc-serialize", "chrono"] }
 router = "0.0.13"
 time = "0.1.32"
-chrono = "0.2"
 r2d2 = "0.6.0"
 rustc-serialize = "0.3"
 persistent = "*"
+
+[dependencies.chrono]
+version = "0.2"
+features = ["rustc-serialize"]
 
 [dependencies.iron]
 
