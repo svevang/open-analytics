@@ -69,38 +69,35 @@ fn print_database(conn:r2d2::PooledConnection<r2d2_postgres::PostgresConnectionM
     for row in stmt.query(&[]).unwrap() {
         let id:i32 = row.get::<_, i32>(0);
         let name:String =  row.get::<_, String>(1);
-        let json=  row.get::<_, rustc_serialize::json::Json>(2);
+        let event_data =  row.get::<_, rustc_serialize::json::Json>(2);
         let date_created =  row.get::<_, NaiveDateTime>(3);
         let event = Event {
             id: id,
             name: name,
-            json: json,
+            event_data: event_data,
             date_created: date_created
         };
-        println!("Found event {}, {}, {:?} {}", event.id, event.name, event.json, event.date_created);
+        println!("Found event {}, {}, {:?} {}", event.id, event.name, event.event_data, event.date_created);
     }
 
 }
 
 fn event_read(req: &mut Request) -> IronResult<Response> {
     let conn = req.extensions.get::<app::App>().unwrap().database.get().unwrap();
-    let stmt = conn.prepare("SELECT id, data, name, date_created FROM analytics where name=$1").unwrap();
-    println!("here!");
+    let stmt = conn.prepare("SELECT id, event_data, name, date_created FROM analytics where name=$1").unwrap();
     let ref namespace = req.extensions.get::<Router>()
         .unwrap().find("name").unwrap_or("missing name param");
-    println!("here!");
     let result = stmt.query(&[namespace]).unwrap();
     let mut events:Vec<rustc_serialize::json::Json> = Vec::new();
-    println!("here!");
     for row in result {
         let id:i32 = row.get::<_, i32>(0);
-        let json=  row.get::<_, rustc_serialize::json::Json>(1);
+        let event_data =  row.get::<_, rustc_serialize::json::Json>(1);
         let name:String =  row.get::<_, String>(2);
         let date_created =  row.get::<_, NaiveDateTime>(3);
         let event = Event {
             id: id,
             name: name,
-            json: json,
+            event_data: event_data,
             date_created: date_created
         };
         events.push(event.to_json());
@@ -119,7 +116,7 @@ fn event_write(req: &mut Request) -> IronResult<Response> {
             let ref namespace = req.extensions.get::<Router>()
                                  .unwrap().find("name").unwrap_or("missing name param");
 
-            let stmt = conn.prepare("INSERT INTO analytics (name, data) VALUES ($1, $2) RETURNING id").unwrap();
+            let stmt = conn.prepare("INSERT INTO analytics (name, event_data) VALUES ($1, $2) RETURNING id").unwrap();
             let result = stmt.query(&[namespace, &body]).unwrap();
             let row_id:i32 = result.get(0).get::<_, i32>(0);
             print_database(req.extensions.get::<app::App>().unwrap().database.get().unwrap());
