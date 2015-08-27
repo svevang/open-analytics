@@ -19,6 +19,7 @@ use time::precise_time_ns;
 use chrono::*;
 use router::Router;
 use rustc_serialize::json;
+use rustc_serialize::json::ToJson;
 
 use std::sync::Arc;
 struct ResponseTime;
@@ -47,6 +48,12 @@ struct Event {
     date_created: NaiveDateTime
 }
 
+// JSON value representation
+impl json::ToJson for Event {
+    fn to_json(&self) -> json::Json {
+        self.name.to_json()
+    }
+}
 
 fn print_database(conn:r2d2::PooledConnection<r2d2_postgres::PostgresConnectionManager>){
 
@@ -70,15 +77,18 @@ fn print_database(conn:r2d2::PooledConnection<r2d2_postgres::PostgresConnectionM
 
 fn event_read(req: &mut Request) -> IronResult<Response> {
     let conn = req.extensions.get::<app::App>().unwrap().database.get().unwrap();
-    let stmt = conn.prepare("SELECT id, data, date_created FROM analytics where name=$1").unwrap();
+    let stmt = conn.prepare("SELECT id, data, name, date_created FROM analytics where name=$1").unwrap();
+    println!("here!");
     let ref namespace = req.extensions.get::<Router>()
         .unwrap().find("name").unwrap_or("missing name param");
+    println!("here!");
     let result = stmt.query(&[namespace]).unwrap();
-    let mut events = Vec::new();
+    let mut events:Vec<rustc_serialize::json::Json> = Vec::new();
+    println!("here!");
     for row in result {
         let id:i32 = row.get::<_, i32>(0);
-        let name:String =  row.get::<_, String>(1);
-        let json=  row.get::<_, rustc_serialize::json::Json>(2);
+        let json=  row.get::<_, rustc_serialize::json::Json>(1);
+        let name:String =  row.get::<_, String>(2);
         let date_created =  row.get::<_, NaiveDateTime>(3);
         let event = Event {
             id: id,
@@ -86,10 +96,12 @@ fn event_read(req: &mut Request) -> IronResult<Response> {
             json: json,
             date_created: date_created
         };
-        events.push(event);
+        events.push(event.to_json());
        // println!("Found event {}, {}, {:?} {}", event.id, event.name, event.json, event.date_created);
     }
-    Ok(Response::with((iron::status::Ok, "OK")))
+    let json_response = events.pop().unwrap();
+    //println!("here! {:?}", json_response.find("name"));
+    Ok(Response::with((iron::status::Ok, json_response.as_string().unwrap())))
 }
 
 fn event_write(req: &mut Request) -> IronResult<Response> {
