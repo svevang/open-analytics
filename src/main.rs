@@ -145,14 +145,14 @@ fn main() {
     chain.link_before(app::AppMiddleware::new(arc_app.clone()));
     chain.link_before(ResponseTime);
     chain.link_after(ResponseTime);
-    router.get("api/v1/:name", chain);
+    router.get("api/v1/events/:name", chain);
 
     let mut chain = Chain::new(event_write);
     chain.link_before(ResponseTime);
     chain.link_before(app::AppMiddleware::new(arc_app.clone()));
     chain.link_before(Read::<bodyparser::MaxBodyLength>::one(MAX_BODY_LENGTH));
     chain.link_after(ResponseTime);
-    router.post("api/v1/:name", chain);
+    router.post("api/v1/events/:name/new", chain);
 
     println!("starting server on localhost:3000");
     Iron::new(router).http("localhost:3000").unwrap();
