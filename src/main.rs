@@ -21,6 +21,7 @@ use router::Router;
 use rustc_serialize::json;
 use rustc_serialize::json::ToJson;
 
+use std::collections::HashMap;
 use std::sync::Arc;
 struct ResponseTime;
 
@@ -44,14 +45,20 @@ impl AfterMiddleware for ResponseTime {
 struct Event {
     id: i32,
     name: String,
-    json: json::Json,
+    event_data: json::Json,
     date_created: NaiveDateTime
 }
 
 // JSON value representation
 impl json::ToJson for Event {
     fn to_json(&self) -> json::Json {
-        self.name.to_json()
+
+        let mut d = HashMap::new();
+        d.insert("id".to_string(), self.id.to_json());
+        d.insert("name".to_string(), self.name.to_json());
+        d.insert("date_created".to_string(), self.date_created.format("%+").to_string().to_json());
+
+        d.to_json()
     }
 }
 
@@ -97,11 +104,9 @@ fn event_read(req: &mut Request) -> IronResult<Response> {
             date_created: date_created
         };
         events.push(event.to_json());
-       // println!("Found event {}, {}, {:?} {}", event.id, event.name, event.json, event.date_created);
     }
-    let json_response = events.pop().unwrap();
-    //println!("here! {:?}", json_response.find("name"));
-    Ok(Response::with((iron::status::Ok, json_response.as_string().unwrap())))
+    //let json_response = events.pop().unwrap();
+    Ok(Response::with((iron::status::Ok, events.to_json().to_string())))
 }
 
 fn event_write(req: &mut Request) -> IronResult<Response> {
