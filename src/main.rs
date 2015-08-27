@@ -46,7 +46,7 @@ struct Event {
     id: i32,
     name: String,
     event_data: json::Json,
-    date_created: NaiveDateTime
+    date_created: DateTime<UTC>
 }
 
 // JSON value representation
@@ -65,12 +65,12 @@ impl json::ToJson for Event {
 fn print_database(conn:r2d2::PooledConnection<r2d2_postgres::PostgresConnectionManager>){
 
     println!("hi there!");
-    let stmt = conn.prepare("SELECT * FROM analytics").unwrap();
+    let stmt = conn.prepare("SELECT id, name, event_data, date_created FROM analytics").unwrap();
     for row in stmt.query(&[]).unwrap() {
         let id:i32 = row.get::<_, i32>(0);
         let name:String =  row.get::<_, String>(1);
         let event_data =  row.get::<_, rustc_serialize::json::Json>(2);
-        let date_created =  row.get::<_, NaiveDateTime>(3);
+        let date_created =  row.get::<_, DateTime<UTC>>(3);
         let event = Event {
             id: id,
             name: name,
@@ -93,7 +93,7 @@ fn event_read(req: &mut Request) -> IronResult<Response> {
         let id:i32 = row.get::<_, i32>(0);
         let event_data =  row.get::<_, rustc_serialize::json::Json>(1);
         let name:String =  row.get::<_, String>(2);
-        let date_created =  row.get::<_, NaiveDateTime>(3);
+        let date_created =  row.get::<_, DateTime<UTC>>(3);
         let event = Event {
             id: id,
             name: name,
