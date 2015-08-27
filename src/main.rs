@@ -96,7 +96,7 @@ fn event_read(req: &mut Request) -> IronResult<Response> {
     let stmt = conn.prepare("SELECT id, event_data, name, date_created FROM analytics where name=$1 and id=$2 limit 1").unwrap();
     let result = stmt.query(&[namespace, &id]).unwrap();
 
-    if(result.len() == 1){
+    if result.len() == 1 {
         let row = result.get(0);
         let id:i32 = row.get::<_, i32>(0);
         let event_data =  row.get::<_, rustc_serialize::json::Json>(1);
