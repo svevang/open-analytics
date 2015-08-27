@@ -83,6 +83,33 @@ fn print_database(conn:r2d2::PooledConnection<r2d2_postgres::PostgresConnectionM
 }
 
 fn event_read(req: &mut Request) -> IronResult<Response> {
+
+    let conn = req.extensions.get::<app::App>().unwrap().database.get().unwrap();
+
+    let ref id_param = req.extensions.get::<Router>()
+        .unwrap().find("id").unwrap_or("missing name param");
+    let id = id_param.parse::<i32>().unwrap();
+    let ref namespace = req.extensions.get::<Router>()
+        .unwrap().find("name").unwrap_or("missing name param");
+
+
+    let stmt = conn.prepare("SELECT id, event_data, name, date_created FROM analytics where name=$1 and id=$2 limit 1").unwrap();
+    let result = stmt.query(&[namespace, &id]).unwrap();
+
+    let row = result.get(0);
+    let id:i32 = row.get::<_, i32>(0);
+    let event_data =  row.get::<_, rustc_serialize::json::Json>(1);
+    let name:String =  row.get::<_, String>(2);
+    let date_created =  row.get::<_, DateTime<UTC>>(3);
+    let event = Event {
+        id: id,
+        name: name,
+        event_data: event_data,
+        date_created: date_created
+    };
+    Ok(Response::with((iron::status::Ok, event.to_json().to_string())))
+}
+fn event_list(req: &mut Request) -> IronResult<Response> {
     let conn = req.extensions.get::<app::App>().unwrap().database.get().unwrap();
     let stmt = conn.prepare("SELECT id, event_data, name, date_created FROM analytics where name=$1").unwrap();
     let ref namespace = req.extensions.get::<Router>()
@@ -141,7 +168,7 @@ fn main() {
     let mut router = Router::new();
     let arc_app = Arc::new(app);
 
-    let mut chain = Chain::new(event_read);
+    let mut chain = Chain::new(event_list);
     chain.link_before(app::AppMiddleware::new(arc_app.clone()));
     chain.link_before(ResponseTime);
     chain.link_after(ResponseTime);
@@ -153,6 +180,12 @@ fn main() {
     chain.link_before(Read::<bodyparser::MaxBodyLength>::one(MAX_BODY_LENGTH));
     chain.link_after(ResponseTime);
     router.post("api/v1/events/:name/new", chain);
+
+    let mut chain = Chain::new(event_read);
+    chain.link_before(ResponseTime);
+    chain.link_before(app::AppMiddleware::new(arc_app.clone()));
+    chain.link_after(ResponseTime);
+    router.get("api/v1/events/:name/:id", chain);
 
     println!("starting server on localhost:3000");
     Iron::new(router).http("localhost:3000").unwrap();
