@@ -115,13 +115,20 @@ fn event_read(req: &mut Request) -> IronResult<Response> {
     }
 }
 fn event_list(req: &mut Request) -> IronResult<Response> {
-    let conn = req.extensions.get::<app::App>().unwrap().database.get().unwrap();
-    let stmt = conn.prepare("SELECT id, event_data, name, date_created FROM analytics where name=$1").unwrap();
+
     let ref namespace = req.extensions.get::<Router>()
         .unwrap().find("name").unwrap_or("missing name param");
-    let result = stmt.query(&[namespace]).unwrap();
+    let conn = req.extensions.get::<app::App>().unwrap().database.get().unwrap();
+
+    let trans = conn.transaction().unwrap();
+    let stmt = conn.prepare("SELECT id, event_data, name, date_created FROM analytics where name=$1").unwrap();
+    let result = stmt.lazy_query( &trans, &[namespace], 500).unwrap();
+
     let mut events:Vec<rustc_serialize::json::Json> = Vec::new();
+
+    let before_build = precise_time_ns();
     for row in result {
+        let row = row.unwrap();
         let id:i32 = row.get::<_, i32>(0);
         let event_data =  row.get::<_, rustc_serialize::json::Json>(1);
         let name:String =  row.get::<_, String>(2);
@@ -132,9 +139,10 @@ fn event_list(req: &mut Request) -> IronResult<Response> {
             event_data: event_data,
             date_created: date_created
         };
+
         events.push(event.to_json());
     }
-    //let json_response = events.pop().unwrap();
+
     Ok(Response::with((iron::status::Ok, events.to_json().to_string())))
 }
 
@@ -151,7 +159,7 @@ fn event_write(req: &mut Request) -> IronResult<Response> {
             let stmt = conn.prepare("INSERT INTO analytics (name, event_data) VALUES ($1, $2) RETURNING id").unwrap();
             let result = stmt.query(&[namespace, &body]).unwrap();
             let row_id:i32 = result.get(0).get::<_, i32>(0);
-            print_database(req.extensions.get::<app::App>().unwrap().database.get().unwrap());
+            //print_database(req.extensions.get::<app::App>().unwrap().database.get().unwrap());
             Ok(Response::with((iron::status::Ok, format!("{{\"id\": \"{}\"}}", row_id))))
         },
         Ok(None) => {
