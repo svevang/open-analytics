@@ -84,7 +84,11 @@ fn print_database(conn:r2d2::PooledConnection<r2d2_postgres::PostgresConnectionM
 
 fn event_read(req: &mut Request) -> IronResult<Response> {
 
+    let before = precise_time_ns();
     let conn = req.extensions.get::<app::App>().unwrap().database.get().unwrap();
+    let delta = precise_time_ns() - before;
+    println!("Fetching database handle took: {} ms", (delta as f64) / 1000000.0);
+
 
     let ref id_param = req.extensions.get::<Router>()
         .unwrap().find("id").unwrap_or("missing name param");
@@ -118,6 +122,7 @@ fn event_list(req: &mut Request) -> IronResult<Response> {
 
     let ref namespace = req.extensions.get::<Router>()
         .unwrap().find("name").unwrap_or("missing name param");
+    let before = precise_time_ns();
     let conn = req.extensions.get::<app::App>().unwrap().database.get().unwrap();
 
     let trans = conn.transaction().unwrap();
@@ -142,6 +147,10 @@ fn event_list(req: &mut Request) -> IronResult<Response> {
 
         events.push(event.to_json());
     }
+    let delta = precise_time_ns() - before;
+    println!("discovered {} rows", events.len());
+    println!("Fetching database and running query took: {} ms", (delta as f64) / 1000000.0);
+
 
     Ok(Response::with((iron::status::Ok, events.to_json().to_string())))
 }
