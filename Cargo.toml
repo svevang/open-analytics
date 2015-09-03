@@ -19,7 +19,7 @@ features = ["rustc-serialize"]
 
 [dependencies.iron]
 
-version = "*"
+version = "0.2.2"
 
 [dependencies.bodyparser]
 
