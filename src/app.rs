@@ -13,8 +13,8 @@ impl App {
     pub fn new() -> App {
 
         let db_config = r2d2::Config::builder()
-            .pool_size(2)
-            .helper_threads(2)
+            .pool_size(10)
+            .helper_threads(20)
             .build();
 
         return App {
