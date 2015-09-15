@@ -12,9 +12,12 @@ extern crate bodyparser;
 extern crate persistent;
 extern crate chrono;
 
-use persistent::Read;
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
+use iron::response::ResponseBody;
+use iron::response::WriteBody;
+use iron::modifier::Modifier;
+use iron::modifier;
 use time::precise_time_ns;
 use chrono::*;
 use router::Router;
@@ -23,6 +26,71 @@ use rustc_serialize::json::ToJson;
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::Mutex;
+use std::io;
+
+struct BoxRead(Box<io::Read + Send>);
+impl WriteBody for BoxRead {
+    fn write_body(&mut self, b: &mut ResponseBody) -> io::Result<()> {
+        io::copy(&mut self.0, b)
+            .map(|_| ())
+    }
+}
+
+impl Modifier<Response> for BoxRead {
+    fn modify(self, res: &mut Response) {
+        res.body = Some(Box::new(self));
+    }
+}
+
+
+struct PGResponseReader</*'a, 'b, 'c*/>{
+    namespace: String,
+    db_pool_mutex: Mutex<db::Pool>,
+    //lazy_rows: Option<postgres::rows::LazyRows<'a, 'b>>,
+    started: bool
+}
+
+impl </*'a, 'b, 'c*/>PGResponseReader</*'a, 'b, 'c*/>{
+    fn new(namespace:String, db_pool_mutex:Mutex<db::Pool>) -> PGResponseReader</*'a, 'b, 'c*/>{
+
+        PGResponseReader{
+            namespace: namespace,
+            db_pool_mutex: db_pool_mutex,
+            //lazy_rows: None,
+            started: false
+        }
+    }
+
+    fn initialize_rows(&self){
+
+        let conn = self.db_pool_mutex.lock().unwrap().get().unwrap();
+        let trans = conn.transaction().unwrap();
+        let stmt = conn.prepare("SELECT id, event_data, name, date_created FROM analytics where name=$1").unwrap();
+        let result = stmt.lazy_query( &trans, &[&&self.namespace[..]], 500).unwrap();
+        //self.lazy_rows = Some(result)
+    }
+
+}
+
+impl </*'a, 'b, 'c*/> io::Read for PGResponseReader</*'a, 'b, 'c*/> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+
+        /*match self.lazy_rows {
+            None => self.initialize_rows()
+        }*/
+
+        let list_start = String::from("[");
+        let list_start_bytes = list_start.as_bytes();
+        for i in 0..list_start_bytes.len(){
+            buf[i] = list_start_bytes[i];
+        }
+
+        self.started = true;
+        return Ok(list_start_bytes.len())
+    }
+}
+
 struct ResponseTime;
 
 impl typemap::Key for ResponseTime { type Value = u64; }
@@ -122,13 +190,8 @@ fn event_list(req: &mut Request) -> IronResult<Response> {
 
     let ref namespace = req.extensions.get::<Router>()
         .unwrap().find("name").unwrap_or("missing name param");
-    let before = precise_time_ns();
-    let conn = req.extensions.get::<app::App>().unwrap().database.get().unwrap();
 
-    let trans = conn.transaction().unwrap();
-    let stmt = conn.prepare("SELECT id, event_data, name, date_created FROM analytics where name=$1").unwrap();
-    let result = stmt.lazy_query( &trans, &[namespace], 500).unwrap();
-
+    /*
     let mut events:Vec<rustc_serialize::json::Json> = Vec::new();
 
     let before_build = precise_time_ns();
@@ -144,15 +207,18 @@ fn event_list(req: &mut Request) -> IronResult<Response> {
             event_data: event_data,
             date_created: date_created
         };
-
         events.push(event.to_json());
     }
     let delta = precise_time_ns() - before;
     println!("discovered {} rows", events.len());
     println!("Fetching database and running query took: {} ms", (delta as f64) / 1000000.0);
+*/
 
 
-    Ok(Response::with((iron::status::Ok, events.to_json().to_string())))
+    let db_pool = req.extensions.get::<app::App>().unwrap().database.clone();
+    let reader = Box::new(PGResponseReader::new(String::from(*namespace), Mutex::new(db_pool.clone())));
+    Ok(Response::with((iron::status::Ok, BoxRead(reader) )))
+    //Ok(Response::with((iron::status::Ok, events.to_json().to_string())))
 }
 
 fn event_write(req: &mut Request) -> IronResult<Response> {
@@ -199,7 +265,7 @@ fn main() {
     let mut chain = Chain::new(event_write);
     chain.link_before(ResponseTime);
     chain.link_before(app::AppMiddleware::new(arc_app.clone()));
-    chain.link_before(Read::<bodyparser::MaxBodyLength>::one(MAX_BODY_LENGTH));
+    chain.link_before(persistent::Read::<bodyparser::MaxBodyLength>::one(MAX_BODY_LENGTH));
     chain.link_after(ResponseTime);
     router.post("api/v1/events/:name/new", chain);
 
