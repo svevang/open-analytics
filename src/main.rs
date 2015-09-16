@@ -12,98 +12,23 @@ extern crate bodyparser;
 extern crate persistent;
 extern crate chrono;
 
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::mpsc::sync_channel;
+use std::thread;
+use std::io;
+
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
+use iron::modifier::Modifier;
 use iron::response::ResponseBody;
 use iron::response::WriteBody;
-use iron::modifier::Modifier;
 use time::precise_time_ns;
 use chrono::*;
 use router::Router;
 use rustc_serialize::json;
 use rustc_serialize::json::ToJson;
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::mpsc::sync_channel;
-use std::sync::mpsc::RecvError;
-use std::io;
-use std::thread;
-
-struct BoxRead(Box<io::Read + Send>);
-impl WriteBody for BoxRead {
-    fn write_body(&mut self, b: &mut ResponseBody) -> io::Result<()> {
-        io::copy(&mut self.0, b)
-            .map(|_| ())
-    }
-}
-
-impl Modifier<Response> for BoxRead {
-    fn modify(self, res: &mut Response) {
-        res.body = Some(Box::new(self));
-    }
-}
-
-
-struct PGResponseReader{
-    //lazy_rows: Option<postgres::rows::LazyRows<'a, 'b>>,
-    rx: std::sync::mpsc::Receiver<String>,
-    started: bool,
-    last_event: Option<Result<String, RecvError>>
-}
-
-impl PGResponseReader {
-    fn new(rx:std::sync::mpsc::Receiver<String>) -> PGResponseReader{
-
-        PGResponseReader{
-            rx: rx,
-            started: false,
-            last_event: None
-
-        }
-    }
-
-}
-
-impl io::Read for PGResponseReader {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-
-        self.started = true;
-        let mut buf_write_idx = 0;
-
-        let mut event_json_msg;
-
-        // prime the first json blob for the main loop
-        if self.last_event.is_some() {
-            let event_json_msg_optional = self.last_event.clone();
-            event_json_msg = event_json_msg_optional.unwrap();
-        }
-        else{
-            event_json_msg = self.rx.recv();
-        }
-
-        // assume that each event len is < the buf len (65K)
-        while buf_write_idx < buf.len() && !(event_json_msg.clone()).is_err(){
-            let event_json = event_json_msg.clone().unwrap();
-            let event_json_bytes = event_json.as_bytes();
-            if event_json_msg.is_err(){
-                break
-            }
-            if event_json.len() + buf_write_idx > buf.len(){
-                self.last_event = Some(event_json_msg.clone());
-                break
-            }
-            for i in 0..event_json.len() {
-                buf[i + buf_write_idx] = event_json_bytes[i];
-            }
-            buf_write_idx += event_json.len();
-
-
-            event_json_msg = self.rx.recv();
-        }
-        Ok(buf_write_idx)
-    }
-}
 
 struct ResponseTime;
 
@@ -123,6 +48,25 @@ impl AfterMiddleware for ResponseTime {
         Ok(res)
     }
 }
+
+
+
+struct BoxRead(Box<io::Read + Send>);
+impl WriteBody for BoxRead {
+    fn write_body(&mut self, b: &mut ResponseBody) -> io::Result<()> {
+        io::copy(&mut self.0, b)
+            .map(|_| ())
+    }
+}
+
+impl Modifier<Response> for BoxRead {
+    fn modify(self, res: &mut Response) {
+        res.body = Some(Box::new(self));
+    }
+}
+
+
+
 #[derive(RustcEncodable)]
 struct Event {
     id: i32,
@@ -200,7 +144,7 @@ fn event_list(req: &mut Request) -> IronResult<Response> {
 
         for row in result {
             if started {
-                if tx.send(String::from(",")).is_err() { return };;
+                if tx.send(String::from(",\n")).is_err() { return };;
             }
             started = true;
             let row = row.unwrap();
@@ -220,7 +164,7 @@ fn event_list(req: &mut Request) -> IronResult<Response> {
         if tx.send(String::from("]")).is_err() { return };
     });
 
-    let reader = Box::new(PGResponseReader::new(rx));
+    let reader = Box::new(db::PGResponseReader::new(rx));
     Ok(Response::with((iron::status::Ok, BoxRead(reader) )))
     //Ok(Response::with((iron::status::Ok, events.to_json().to_string())))
 }
