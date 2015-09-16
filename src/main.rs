@@ -46,52 +46,46 @@ impl Modifier<Response> for BoxRead {
 }
 
 
-struct PGResponseReader</*'a, 'b, 'c*/>{
+struct PGResponseReader{
     //lazy_rows: Option<postgres::rows::LazyRows<'a, 'b>>,
-    rx: std::sync::mpsc::Receiver<Event>,
-    started: bool
+    rx: std::sync::mpsc::Receiver<String>,
+    started: bool,
+    last_event: Option<String>
 }
 
-impl </*'a, 'b, 'c*/>PGResponseReader</*'a, 'b, 'c*/>{
-    fn new(rx:std::sync::mpsc::Receiver<Event>) -> PGResponseReader</*'a, 'b, 'c*/>{
+impl PGResponseReader {
+    fn new(rx:std::sync::mpsc::Receiver<String>) -> PGResponseReader{
 
         PGResponseReader{
             rx: rx,
-            started: false
+            started: false,
+            last_event: None
+
         }
     }
 
 }
 
-impl </*'a, 'b, 'c*/> io::Read for PGResponseReader</*'a, 'b, 'c*/> {
+impl io::Read for PGResponseReader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
 
-        /*match self.lazy_rows {
-          None => self.initialize_rows()
-          }*/
+        println!("started: {}", self.started);
+        let event_json_msg = self.rx.recv();
 
-        println!("Started: {}", self.started);
-        if self.started {
-            let event = self.rx.recv().unwrap();
-
-            let event_json_bytes = event.to_json().to_string();
-            println!("Event: {} ", event.id);
-
-            println!("buf len {}", buf.len());
-
+        if event_json_msg.is_err(){
+            self.last_event = None;
             Ok(0)
         }
         else{
-            self.started = true;
-            let list_start = String::from("[");
-            let list_start_bytes = list_start.as_bytes();
-            for i in 0..list_start_bytes.len(){
-                buf[i] = list_start_bytes[i];
+            let event_json = event_json_msg.unwrap();
+            let event_json_bytes = event_json.as_bytes();
+            println!("Event: {} {}", event_json, event_json.len());
+            for i in 0..event_json.len(){
+                buf[i] = event_json_bytes[i];
             }
-
-            Ok(list_start_bytes.len())
+            println!("buf len {}", buf.len());
+            Ok(event_json.len())
         }
-
     }
 }
 
@@ -132,26 +126,6 @@ impl json::ToJson for Event {
 
         d.to_json()
     }
-}
-
-fn print_database(conn:r2d2::PooledConnection<r2d2_postgres::PostgresConnectionManager>){
-
-    println!("hi there!");
-    let stmt = conn.prepare("SELECT id, name, event_data, date_created FROM analytics").unwrap();
-    for row in stmt.query(&[]).unwrap() {
-        let id:i32 = row.get::<_, i32>(0);
-        let name:String =  row.get::<_, String>(1);
-        let event_data =  row.get::<_, rustc_serialize::json::Json>(2);
-        let date_created =  row.get::<_, DateTime<UTC>>(3);
-        let event = Event {
-            id: id,
-            name: name,
-            event_data: event_data,
-            date_created: date_created
-        };
-        println!("Found event {}, {}, {:?} {}", event.id, event.name, event.event_data, event.date_created);
-    }
-
 }
 
 fn event_read(req: &mut Request) -> IronResult<Response> {
@@ -195,7 +169,7 @@ fn event_list(req: &mut Request) -> IronResult<Response> {
     let ref namespace = req.extensions.get::<Router>()
         .unwrap().find("name").unwrap_or("missing name param");
     let name = namespace.parse::<String>().unwrap();
-    let (tx, rx) = sync_channel::<Event>(0);
+    let (tx, rx) = sync_channel::<String>(0);
     let db_pool = req.extensions.get::<app::App>().unwrap().database.clone();
     let conn = db_pool.get().unwrap();
     thread::spawn(move|| {
@@ -204,7 +178,6 @@ fn event_list(req: &mut Request) -> IronResult<Response> {
         let stmt = conn.prepare("SELECT id, event_data, name, date_created FROM analytics where name=$1").unwrap();
         let result = stmt.lazy_query( &trans, &[&&name[..]], 500).unwrap();
 
-        let before_build = precise_time_ns();
         for row in result {
             let row = row.unwrap();
             let id:i32 = row.get::<_, i32>(0);
@@ -217,7 +190,8 @@ fn event_list(req: &mut Request) -> IronResult<Response> {
                 event_data: event_data,
                 date_created: date_created
             };
-            tx.send(event).unwrap();
+            let event_json = event.to_json().to_string();
+            tx.send(event_json).unwrap();
         }
     });
 
@@ -239,7 +213,6 @@ fn event_write(req: &mut Request) -> IronResult<Response> {
             let stmt = conn.prepare("INSERT INTO analytics (name, event_data) VALUES ($1, $2) RETURNING id").unwrap();
             let result = stmt.query(&[namespace, &body]).unwrap();
             let row_id:i32 = result.get(0).get::<_, i32>(0);
-            //print_database(req.extensions.get::<app::App>().unwrap().database.get().unwrap());
             Ok(Response::with((iron::status::Ok, format!("{{\"id\": \"{}\"}}", row_id))))
         },
         Ok(None) => {
