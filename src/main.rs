@@ -178,7 +178,14 @@ fn event_list(req: &mut Request) -> IronResult<Response> {
         let stmt = conn.prepare("SELECT id, event_data, name, date_created FROM analytics where name=$1").unwrap();
         let result = stmt.lazy_query( &trans, &[&&name[..]], 500).unwrap();
 
+        let mut started = false;
+
+        tx.send(String::from("["));
         for row in result {
+            if started {
+                tx.send(String::from(","));
+            }
+            started = true;
             let row = row.unwrap();
             let id:i32 = row.get::<_, i32>(0);
             let event_data =  row.get::<_, rustc_serialize::json::Json>(1);
@@ -193,6 +200,7 @@ fn event_list(req: &mut Request) -> IronResult<Response> {
             let event_json = event.to_json().to_string();
             tx.send(event_json).unwrap();
         }
+        tx.send(String::from("]"));
     });
 
     let reader = Box::new(PGResponseReader::new(rx));
