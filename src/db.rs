@@ -51,6 +51,7 @@ impl io::Read for PGResponseReader {
         if self.last_event.is_some() {
             let event_json_msg_optional = self.last_event.clone();
             event_json_msg = event_json_msg_optional.unwrap();
+            self.last_event = None;
         }
         else{
             event_json_msg = self.rx.recv();
