@@ -28,6 +28,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::mpsc::sync_channel;
+use std::sync::mpsc::RecvError;
 use std::io;
 use std::thread;
 
@@ -50,7 +51,7 @@ struct PGResponseReader{
     //lazy_rows: Option<postgres::rows::LazyRows<'a, 'b>>,
     rx: std::sync::mpsc::Receiver<String>,
     started: bool,
-    last_event: Option<String>
+    last_event: Option<Result<String, RecvError>>
 }
 
 impl PGResponseReader {
@@ -70,22 +71,40 @@ impl io::Read for PGResponseReader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
 
         println!("started: {}", self.started);
-        let event_json_msg = self.rx.recv();
+        self.started = true;
+        let mut buf_write_idx = 0;
 
-        if event_json_msg.is_err(){
-            self.last_event = None;
-            Ok(0)
+        let mut event_json_msg;
+
+        // prime the first json blob for the main loop
+        if self.last_event.is_some() {
+            let event_json_msg_optional = self.last_event.clone();
+            event_json_msg = event_json_msg_optional.unwrap();
         }
         else{
-            let event_json = event_json_msg.unwrap();
-            let event_json_bytes = event_json.as_bytes();
-            println!("Event: {} {}", event_json, event_json.len());
-            for i in 0..event_json.len(){
-                buf[i] = event_json_bytes[i];
-            }
-            println!("buf len {}", buf.len());
-            Ok(event_json.len())
+            event_json_msg = self.rx.recv();
         }
+
+        // assume that each event len is < the buf len (65K)
+        while buf_write_idx < buf.len() && !(event_json_msg.clone()).is_err(){
+            let event_json = event_json_msg.clone().unwrap();
+            let event_json_bytes = event_json.as_bytes();
+            if event_json_msg.is_err(){
+                break
+            }
+            if(event_json.len() + buf_write_idx > buf.len()){
+                self.last_event = Some(event_json_msg.clone());
+                break
+            }
+            for i in 0..event_json.len() {
+                buf[i + buf_write_idx] = event_json_bytes[i];
+            }
+            buf_write_idx += event_json.len();
+
+
+            event_json_msg = self.rx.recv();
+        }
+        Ok(buf_write_idx)
     }
 }
 
