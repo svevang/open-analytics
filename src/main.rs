@@ -65,8 +65,6 @@ impl Modifier<Response> for BoxRead {
     }
 }
 
-
-
 #[derive(RustcEncodable)]
 struct Event {
     id: i32,
@@ -82,6 +80,7 @@ impl json::ToJson for Event {
         let mut d = HashMap::new();
         d.insert("id".to_string(), self.id.to_json());
         d.insert("name".to_string(), self.name.to_json());
+        d.insert("event_data".to_string(), self.event_data.clone());
         d.insert("date_created".to_string(), self.date_created.format("%+").to_string().to_json());
 
         d.to_json()
