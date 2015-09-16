@@ -17,7 +17,6 @@ use iron::{BeforeMiddleware, AfterMiddleware, typemap};
 use iron::response::ResponseBody;
 use iron::response::WriteBody;
 use iron::modifier::Modifier;
-use iron::modifier;
 use time::precise_time_ns;
 use chrono::*;
 use router::Router;
@@ -26,7 +25,6 @@ use rustc_serialize::json::ToJson;
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::sync::mpsc::sync_channel;
 use std::sync::mpsc::RecvError;
 use std::io;
@@ -70,7 +68,6 @@ impl PGResponseReader {
 impl io::Read for PGResponseReader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
 
-        println!("started: {}", self.started);
         self.started = true;
         let mut buf_write_idx = 0;
 
@@ -92,7 +89,7 @@ impl io::Read for PGResponseReader {
             if event_json_msg.is_err(){
                 break
             }
-            if(event_json.len() + buf_write_idx > buf.len()){
+            if event_json.len() + buf_write_idx > buf.len(){
                 self.last_event = Some(event_json_msg.clone());
                 break
             }
@@ -199,10 +196,11 @@ fn event_list(req: &mut Request) -> IronResult<Response> {
 
         let mut started = false;
 
-        tx.send(String::from("["));
+        if tx.send(String::from("[")).is_err() { return };
+
         for row in result {
             if started {
-                tx.send(String::from(","));
+                if tx.send(String::from(",")).is_err() { return };;
             }
             started = true;
             let row = row.unwrap();
@@ -217,9 +215,9 @@ fn event_list(req: &mut Request) -> IronResult<Response> {
                 date_created: date_created
             };
             let event_json = event.to_json().to_string();
-            tx.send(event_json).unwrap();
+            if tx.send(event_json).is_err() { return };
         }
-        tx.send(String::from("]"));
+        if tx.send(String::from("]")).is_err() { return };
     });
 
     let reader = Box::new(PGResponseReader::new(rx));
