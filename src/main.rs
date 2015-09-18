@@ -222,6 +222,6 @@ fn main() {
     router.get("api/v1/events/:name/:id", chain);
 
     println!("starting server on localhost:3000");
-    Iron::new(router).http("localhost:3000").unwrap();
+    Iron::new(router).http("0.0.0.0:3000").unwrap();
 
 }
