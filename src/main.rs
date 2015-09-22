@@ -89,11 +89,7 @@ impl json::ToJson for Event {
 
 fn event_read(req: &mut Request) -> IronResult<Response> {
 
-    let before = precise_time_ns();
     let conn = req.extensions.get::<app::App>().unwrap().database.get().unwrap();
-    let delta = precise_time_ns() - before;
-    println!("Fetching database handle took: {} ms", (delta as f64) / 1000000.0);
-
 
     let ref id_param = req.extensions.get::<Router>()
         .unwrap().find("id").unwrap_or("missing name param");
