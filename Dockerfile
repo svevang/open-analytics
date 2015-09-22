@@ -18,7 +18,7 @@ RUN sh /tmp/rust-1.3.0-x86_64-unknown-linux-gnu/install.sh
 ADD . /home/app/open-analytics
 WORKDIR /home/app/open-analytics
 
-RUN cargo build --release --verbose
+RUN cargo build --release
 
 EXPOSE 3000
 
