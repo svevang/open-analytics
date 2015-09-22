@@ -4,6 +4,7 @@ use iron;
 use iron::Request;
 use iron::{BeforeMiddleware};
 use std::sync::Arc;
+use std::env;
 
 pub struct App {
     pub database: db::Pool,
@@ -17,8 +18,9 @@ impl App {
             .helper_threads(20)
             .build();
 
+        let db_url = env::var("DB_URL").unwrap();
         return App {
-            database: db::pool("postgres://sam@localhost/open_analytics_development", db_config),
+            database: db::pool(&db_url, db_config),
         };
     }
 }
