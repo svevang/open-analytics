@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+function usage {
+  cat <<EOS
+Usage: ./deploy <connection-string> <environment>
+ e.g.: ./deploy core@api.open-analytics-staging.jackpine.me staging
+EOS
+}
+
+function provision {
+
+  BIN_DIR=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)
+  echo "local dir: $BIN_DIR"
+
+  ENVIRONMENT=$1
+
+  if [ -z $ENVIRONMENT ]
+  then
+    usage
+    exit 1
+  fi
+
+  docker ps -a | grep open-analytics-db > /dev/null
+  DB_ALREADY_DEPLOYED=$?
+  if [ $DB_ALREADY_DEPLOYED -eq 0 ]
+  then
+    echo "Database previously deployed. $DB_ALREADY_DEPLOYED"
+    docker start open-analytics-db
+  else
+    echo "Deploying new database container."
+    docker run --log-driver=journald --name open-analytics-db -d svevang/open-analytics-db
+  fi
+
+  echo "Pulling latest containers."
+  docker pull svevang/open-analytics > /dev/null
+  docker pull svevang/open-analytics-db > /dev/null
+
+  echo "Removing any pre-existing api container."
+  docker stop open-analytics > /dev/null
+  docker rm open-analytics > /dev/null
+
+  echo "Starting new api container."
+  docker run  \
+    --name open-analytics \
+    --log-driver=journald \
+    --link open-analytics-db:db \
+    -e DB_URL=postgres://postgres@db/open_analytics \
+    -d -p 3000:3000 \
+    svevang/open-analytics
+
+
+#  echo "Copying config."
+#  docker exec -i open-analytics bash -c "cat - > ~app/open-analytics/.env" < ~/open-analytics/ops/secrets/open-analytics-$ENVIRONMENT-api.env
+
+  echo "Restarting container."
+  docker stop open-analytics
+  docker start open-analytics
+}
+
+if [ "$#" == 2 ]
+then
+  HOST=$1
+  ENVIRONMENT=$2
+
+  echo "Remote deploying ${ENVIRONMENT} to ${HOST}."
+  ssh $1 "$(typeset -f); provision $ENVIRONMENT"
+else
+  usage
+  exit 1
+fi
