@@ -19,21 +19,20 @@ pub fn pool(url: &str, config: r2d2::Config<postgres::Connection, r2d2_postgres:
     r2d2::Pool::new(config, mgr).unwrap()
 }
 
-pub struct PGResponseReader{
-    //lazy_rows: Option<postgres::rows::LazyRows<'a, 'b>>,
+pub struct PGResponseReader {
+    // lazy_rows: Option<postgres::rows::LazyRows<'a, 'b>>,
     pub rx: mpsc::Receiver<String>,
     pub started: bool,
-    pub last_event: Option<Result<String, mpsc::RecvError>>
+    pub last_event: Option<Result<String, mpsc::RecvError>>,
 }
 
 impl PGResponseReader {
-    pub fn new(rx:mpsc::Receiver<String>) -> PGResponseReader{
+    pub fn new(rx: mpsc::Receiver<String>) -> PGResponseReader {
 
-        PGResponseReader{
+        PGResponseReader {
             rx: rx,
             started: false,
-            last_event: None
-
+            last_event: None,
         }
     }
 
@@ -52,21 +51,20 @@ impl io::Read for PGResponseReader {
             let event_json_msg_optional = self.last_event.clone();
             event_json_msg = event_json_msg_optional.unwrap();
             self.last_event = None;
-        }
-        else{
+        } else {
             event_json_msg = self.rx.recv();
         }
 
         // assume that each event len is < the buf len (65K)
-        while buf_write_idx < buf.len() && !(event_json_msg.clone()).is_err(){
+        while buf_write_idx < buf.len() && !(event_json_msg.clone()).is_err() {
             let event_json = event_json_msg.clone().unwrap();
             let event_json_bytes = event_json.as_bytes();
-            if event_json_msg.is_err(){
-                break
+            if event_json_msg.is_err() {
+                break;
             }
-            if event_json.len() + buf_write_idx > buf.len(){
+            if event_json.len() + buf_write_idx > buf.len() {
                 self.last_event = Some(event_json_msg.clone());
-                break
+                break;
             }
             for i in 0..event_json.len() {
                 buf[i + buf_write_idx] = event_json_bytes[i];
@@ -79,5 +77,3 @@ impl io::Read for PGResponseReader {
         Ok(buf_write_idx)
     }
 }
-
-

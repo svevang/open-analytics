@@ -12,6 +12,7 @@ time = "0.1.32"
 r2d2 = "0.6.0"
 rustc-serialize = "0.3"
 persistent = "*"
+staticfile = "*"
 
 [dependencies.chrono]
 version = "0.2"
@@ -20,6 +21,10 @@ features = ["rustc-serialize"]
 [dependencies.iron]
 
 version = "0.2.2"
+
+[dependencies.mount]
+
+git = "https://github.com/iron/mount.git"
 
 [dependencies.bodyparser]
 

@@ -2,7 +2,7 @@ use r2d2;
 use db;
 use iron;
 use iron::Request;
-use iron::{BeforeMiddleware};
+use iron::BeforeMiddleware;
 use std::sync::Arc;
 use std::env;
 
@@ -14,14 +14,12 @@ impl App {
     pub fn new() -> App {
 
         let db_config = r2d2::Config::builder()
-            .pool_size(10)
-            .helper_threads(20)
-            .build();
+                            .pool_size(10)
+                            .helper_threads(20)
+                            .build();
 
         let db_url = env::var("DB_URL").unwrap();
-        return App {
-            database: db::pool(&db_url, db_config),
-        };
+        return App { database: db::pool(&db_url, db_config) };
     }
 }
 
@@ -30,7 +28,7 @@ impl iron::typemap::Key for App {
 }
 
 pub struct AppMiddleware {
-        app: Arc<App>
+    app: Arc<App>,
 }
 
 impl AppMiddleware {
@@ -47,10 +45,10 @@ impl BeforeMiddleware for AppMiddleware {
         Ok(())
     }
 
-/*
-    fn before(&self, req: &mut Request) -> IronResult<()> {
-        req.extensions.insert::<ResponseTime>(precise_time_ns());
-        Ok(())
-    }
-    */
+//
+// fn before(&self, req: &mut Request) -> IronResult<()> {
+// req.extensions.insert::<ResponseTime>(precise_time_ns());
+// Ok(())
+// }
+//
 }

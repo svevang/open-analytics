@@ -11,6 +11,7 @@ extern crate rustc_serialize;
 extern crate bodyparser;
 extern crate persistent;
 extern crate chrono;
+extern crate staticfile;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -28,6 +29,9 @@ use chrono::*;
 use router::Router;
 use rustc_serialize::json;
 use rustc_serialize::json::ToJson;
+
+use std::path::Path;
+use staticfile::Static;
 
 
 struct ResponseTime;
@@ -216,6 +220,8 @@ fn main() {
     chain.link_before(app::AppMiddleware::new(arc_app.clone()));
     chain.link_after(ResponseTime);
     router.get("api/v1/events/:name/:id", chain);
+
+//    router.get("/", Static::new(Path::new("target/root/")));
 
     println!("starting server on localhost:3000");
     Iron::new(router).http("0.0.0.0:3000").unwrap();
