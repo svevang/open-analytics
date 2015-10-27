@@ -22,7 +22,6 @@ impl App {
         let db_url = env::var("DB_URL");
         match db_url {
             Ok(url) => {
-                println!("initializing the App {:?}", url);
                 App { database: db::pool(&url, db_config) }
             },
             Err(e) => {
