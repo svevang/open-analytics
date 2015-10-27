@@ -5,6 +5,7 @@ use iron::Request;
 use iron::BeforeMiddleware;
 use std::sync::Arc;
 use std::env;
+use std::process;
 
 pub struct App {
     pub database: db::Pool,
@@ -18,8 +19,17 @@ impl App {
                             .helper_threads(20)
                             .build();
 
-        let db_url = env::var("DB_URL").unwrap();
-        return App { database: db::pool(&db_url, db_config) };
+        let db_url = env::var("DB_URL");
+        match db_url {
+            Ok(url) => {
+                println!("initializing the App {:?}", url);
+                App { database: db::pool(&url, db_config) }
+            },
+            Err(e) => {
+                println!("Error accessing the DB_URL environment variable");
+                process::exit(1);
+            }
+        }
     }
 }
 
