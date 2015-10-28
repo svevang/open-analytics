@@ -38,12 +38,12 @@ RSpec.configure do |config|
 
     system("#{"docker run --name #{TEST_OA_CONTAINER} --link #{TEST_DB_CONTAINER}:db " +
                "-e DB_URL=postgres://postgres@db/open_analytics -d -p 7676:3000 " +
-               "svevang/open-analytics"} > /dev/null")
+               "svevang/open-analytics-test"} > /dev/null")
 
     host_up = false
     until host_up do
       begin
-        host_up = Net::HTTP.get_response(URI(API_URL)).code == "404"
+        host_up = Net::HTTP.get_response(URI(API_URL)).code == "200"
       rescue
       end
     end

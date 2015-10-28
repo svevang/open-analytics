@@ -11,4 +11,9 @@ describe "events analytics api" do
       before { get '/api/v1/blah/foo' }
       it { should == "404" }
     end
+    context "looking up a static file path" do
+      before { get '/' }
+      it { expect(@response.code).to eq("200") }
+      it { expect(@response.body.strip()).to eq("Hello World") }
+    end
 end

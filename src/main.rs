@@ -12,12 +12,15 @@ extern crate bodyparser;
 extern crate persistent;
 extern crate chrono;
 extern crate staticfile;
+extern crate mount;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::mpsc::sync_channel;
 use std::thread;
 use std::io;
+use std::env;
+use std::process;
 
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
@@ -29,6 +32,7 @@ use chrono::*;
 use router::Router;
 use rustc_serialize::json;
 use rustc_serialize::json::ToJson;
+use mount::Mount;
 
 use std::path::Path;
 use staticfile::Static;
@@ -206,24 +210,28 @@ fn main() {
     chain.link_before(app::AppMiddleware::new(arc_app.clone()));
     chain.link_before(ResponseTime);
     chain.link_after(ResponseTime);
-    router.get("api/v1/events/:name", chain);
+    router.get("events/:name", chain);
 
     let mut chain = Chain::new(event_write);
     chain.link_before(ResponseTime);
     chain.link_before(app::AppMiddleware::new(arc_app.clone()));
     chain.link_before(persistent::Read::<bodyparser::MaxBodyLength>::one(MAX_BODY_LENGTH));
     chain.link_after(ResponseTime);
-    router.post("api/v1/events/:name/new", chain);
+    router.post("events/:name/new", chain);
 
     let mut chain = Chain::new(event_read);
     chain.link_before(ResponseTime);
     chain.link_before(app::AppMiddleware::new(arc_app.clone()));
     chain.link_after(ResponseTime);
-    router.get("api/v1/events/:name/:id", chain);
+    router.get("events/:name/:id", chain);
 
-//    router.get("/", Static::new(Path::new("target/root/")));
+    let mut mount = Mount::new();
+    mount.mount("/api/v1", router);
+
+
+    mount.mount("/", Static::new(Path::new("public/")));
 
     println!("starting server on localhost:3000");
-    Iron::new(router).http("0.0.0.0:3000").unwrap();
+    Iron::new(mount).http("0.0.0.0:3000").unwrap();
 
 }
