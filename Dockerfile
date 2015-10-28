@@ -15,9 +15,16 @@ RUN curl https://static.rust-lang.org/dist/rust-1.3.0-x86_64-unknown-linux-gnu.t
 RUN cd /tmp && tar -xvf rust-1.3.0-x86_64-unknown-linux-gnu.tar.gz > /dev/null
 RUN sh /tmp/rust-1.3.0-x86_64-unknown-linux-gnu/install.sh
 
-ADD . /home/app/open-analytics
+# build the deps first
+ADD Cargo* /home/app/open-analytics/
+RUN mkdir /home/app/open-analytics/src
+# need a dummy file to compile
+RUN touch /home/app/open-analytics/src/lib.rs
 WORKDIR /home/app/open-analytics
+RUN cargo build --release
 
+# now build the source
+ADD . /home/app/open-analytics/
 RUN cargo build --release
 
 EXPOSE 3000
