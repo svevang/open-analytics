@@ -9,7 +9,6 @@
     "react-router": "*"
   },
   "devDependencies": {
-    "alt": "*",
     "babel-core": "*",
     "babel-loader": "^6.2.0",
     "babel-plugin-transform-react-jsx": "^6.2.0",

@@ -6,12 +6,11 @@ var srcPath = __dirname + '/src';
 var HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
-    context: __dirname + "/app",
     entry: {
         app: path.join(srcPath, 'index.js'),
     },
     output: {
-        path: path.join(__dirname, 'build'),
+        path: path.join(__dirname, '../public'),
         filename: 'app.js',
     },
     module: {
@@ -34,6 +33,6 @@ module.exports = {
         modulesDirectories: ['node_modules', '.']
     },
     devServer: {
-        contentBase: './build',
+        contentBase: '../public',
     }
 };
