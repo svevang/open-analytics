@@ -13,6 +13,7 @@ extern crate persistent;
 extern crate chrono;
 extern crate staticfile;
 extern crate mount;
+extern crate logger;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -22,6 +23,7 @@ use std::io;
 use std::env;
 use std::process;
 
+use logger::Logger;
 use iron::prelude::*;
 use iron::{BeforeMiddleware, AfterMiddleware, typemap};
 use iron::modifier::Modifier;
@@ -36,27 +38,6 @@ use mount::Mount;
 
 use std::path::Path;
 use staticfile::Static;
-
-
-struct ResponseTime;
-
-impl typemap::Key for ResponseTime { type Value = u64; }
-
-impl BeforeMiddleware for ResponseTime {
-    fn before(&self, req: &mut Request) -> IronResult<()> {
-        req.extensions.insert::<ResponseTime>(precise_time_ns());
-        Ok(())
-    }
-}
-
-impl AfterMiddleware for ResponseTime {
-    fn after(&self, req: &mut Request, res: Response) -> IronResult<Response> {
-        let delta = precise_time_ns() - *req.extensions.get::<ResponseTime>().unwrap();
-        println!("Request took: {} ms", (delta as f64) / 1000000.0);
-        Ok(res)
-    }
-}
-
 
 
 struct BoxRead(Box<io::Read + Send>);
@@ -206,23 +187,26 @@ fn main() {
     let mut router = Router::new();
     let arc_app = Arc::new(app);
 
+    let (logger_before, logger_after) = Logger::new(None);
     let mut chain = Chain::new(event_list);
+    chain.link_before(logger_before);
     chain.link_before(app::AppMiddleware::new(arc_app.clone()));
-    chain.link_before(ResponseTime);
-    chain.link_after(ResponseTime);
+    chain.link_after(logger_after);
     router.get("events/:name", chain);
 
+    let (logger_before, logger_after) = Logger::new(None);
     let mut chain = Chain::new(event_write);
-    chain.link_before(ResponseTime);
+    chain.link_before(logger_before);
     chain.link_before(app::AppMiddleware::new(arc_app.clone()));
     chain.link_before(persistent::Read::<bodyparser::MaxBodyLength>::one(MAX_BODY_LENGTH));
-    chain.link_after(ResponseTime);
+    chain.link_after(logger_after);
     router.post("events/:name/new", chain);
 
+    let (logger_before, logger_after) = Logger::new(None);
     let mut chain = Chain::new(event_read);
-    chain.link_before(ResponseTime);
+    chain.link_before(logger_before);
     chain.link_before(app::AppMiddleware::new(arc_app.clone()));
-    chain.link_after(ResponseTime);
+    chain.link_after(logger_after);
     router.get("events/:name/:id", chain);
 
     let mut mount = Mount::new();
