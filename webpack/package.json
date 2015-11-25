@@ -4,6 +4,7 @@
   "homepage": "https://github.com/svevang/open-analytics#readme",
   "dependencies": {
     "alt": "*",
+    "babel-preset-es2015": "^6.1.18",
     "babel-runtime": "*",
     "react": "*",
     "react-router": "*"
