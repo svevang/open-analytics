@@ -1,0 +1,11 @@
+Open Analytics
+==============
+
+OA is a http api written in rust. Mostly written as a way to explore rust and
+the new generation of strongly typed languages, I'm also interested in a way to
+siphon iOS analyics data away from closed silos like Fabric.
+
+The eventual goal is to develop applications _around_ an analytics pipeline.
+The next step is an iOS client to spilt the analytics data across multiple
+services. Since I'm working with React Native currently, a simple JS logger
+might be enough to get going!
